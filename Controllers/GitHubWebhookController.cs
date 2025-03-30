@@ -11,7 +11,7 @@ public class GitHubWebhookController : ControllerBase
 {
     private readonly HttpClient _httpClient;
     private const string GitHubToken = "SAMPLE_SECRET";
-    private const string OpenAiApiKey = "YOUR_OPENAI_API_KEY";
+    private const string OpenAiApiKey = "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";
     private const string OpenAiEndpoint = "https://api.openai.com/v1/chat/completions";
 
     public GitHubWebhookController(HttpClient httpClient)
