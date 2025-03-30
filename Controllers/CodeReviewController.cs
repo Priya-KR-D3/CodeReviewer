@@ -10,7 +10,7 @@ using CodeReviewer.Models;
 public class CodeReviewController : ControllerBase
 {
     private readonly HttpClient _httpClient;
-    private const string OpenAiApiKey = "YOUR_OPENAI_API_KEY";
+    private const string OpenAiApiKey = "SAMPLE_SECRET";
     private const string OpenAiEndpoint = "https://api.openai.com/v1/chat/completions";
 
     public CodeReviewController(HttpClient httpClient)
