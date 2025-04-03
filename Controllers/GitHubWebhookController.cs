@@ -80,7 +80,7 @@ public class GitHubWebhookController : ControllerBase
             - Identify performance issues.
             - Check for security vulnerabilities.
             - Suggest improvements based on best practices.
-            - Explain any suggested changes clearly1.
+            - Explain any suggested changes clearly.
             
             Code:
             ```csharp
