@@ -4,28 +4,30 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using CodeReviewer.Models;
+using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
-[Route("api/review")]
 [ApiController]
+[Route("api/[controller]")]
 public class CodeReviewController : ControllerBase
 {
     private readonly HttpClient _httpClient;
-    private const string OpenAiApiKey = "SAMPLE_SECRET";
-    private const string OpenAiEndpoint = "https://api.openai.com/v1/chat/completions";
+    private const string GeminiApiKey = "AIzaSyBbEoTyKoWZSRQyogioyfCxIfGSNm-at-o";
+    private const string GeminiEndpoint = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 
     public CodeReviewController(HttpClient httpClient)
     {
         _httpClient = httpClient;
     }
 
-    [HttpPost]
+    [HttpPost("review")]
     public async Task<IActionResult> ReviewCode([FromBody] CodeReviewRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Code))
             return BadRequest(new { error = "Code input cannot be empty." });
 
         var prompt = $"""
-            Analyze the following C# code for performance, security, readability, and best practices. 
+            Analyze the following C# code for performance, security, readability, and best practices.
             Suggest improvements and provide explanations.
 
             Code:
@@ -34,21 +36,70 @@ public class CodeReviewController : ControllerBase
             ```
             """;
 
-        var openAiRequest = new
+        var geminiRequest = new
         {
-            model = "gpt-4",
-            messages = new[] { new { role = "system", content = prompt } },
-            max_tokens = 1000
+            model = "gemini-2.0-flash", // Use gpt-3.5-turbo for free/cheaper access
+            messages = new[] { new { role = "user", content = prompt } }, // Corrected role
+            max_tokens = 1000,
+            stream = true
         };
 
-        var requestBody = new StringContent(JsonSerializer.Serialize(openAiRequest), Encoding.UTF8, "application/json");
+        var content = new StringContent(JsonConvert.SerializeObject(geminiRequest), Encoding.UTF8, "application/json");
 
         _httpClient.DefaultRequestHeaders.Clear();
-        _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {OpenAiApiKey}");
+        _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {GeminiApiKey}");
 
-        var response = await _httpClient.PostAsync(OpenAiEndpoint, requestBody);
-        var responseContent = await response.Content.ReadAsStringAsync();
+        //  var response = await _httpClient.PostAsync(GeminiEndpoint, content);
+        //   var responseContent = await response.Content.ReadAsStringAsync();
 
-        return Ok(JsonSerializer.Deserialize<JsonElement>(responseContent));
+        //JsonDocument jsonDocument = JsonDocument.Parse(responseContent);
+
+        //if (!response.IsSuccessStatusCode)
+        //{
+        //    return BadRequest(new { error = $"Gemini API Error: {responseContent}" });
+        //}
+
+        //try
+        //{
+        //    var jsonResponse = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(responseContent);
+        //    return Ok(jsonResponse);
+        //}
+        //catch (Newtonsoft.Json.JsonException)
+        //{
+        //    return BadRequest(new { error = "Invalid JSON response from Gemini API." });
+        //}
+
+
+        HttpResponseMessage response = await _httpClient.PostAsync(GeminiEndpoint, content); // important.
+        response.EnsureSuccessStatusCode();
+
+        using (var stream = await response.Content.ReadAsStreamAsync())
+        using (var reader = new System.IO.StreamReader(stream))
+        {
+            string fullResponse = "";
+            while (!reader.EndOfStream)
+            {
+                string line = await reader.ReadLineAsync();
+                if (line.StartsWith("data: "))
+                {
+                    string jsonString = line.Substring(6); // Remove "data: "
+
+                    if (jsonString == "[DONE]")
+                    {
+                        break;
+                    }
+
+                    JsonDocument jsonDocument = JsonDocument.Parse(jsonString);
+                    if (jsonDocument.RootElement.TryGetProperty("choices", out JsonElement choices) && choices.ValueKind == JsonValueKind.Array && choices.GetArrayLength() > 0)
+                    {
+                        if (choices[0].TryGetProperty("delta", out JsonElement delta) && delta.TryGetProperty("content", out JsonElement contentElement))
+                        {
+                            fullResponse += contentElement.GetString();
+                        }
+                    }
+                }
+            }
+            return Ok(fullResponse);
+        }
     }
 }

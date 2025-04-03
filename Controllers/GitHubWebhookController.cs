@@ -11,8 +11,8 @@ public class GitHubWebhookController : ControllerBase
 {
     private readonly HttpClient _httpClient;
     private const string GitHubToken = "SAMPLE_SECRET";
-    private const string OpenAiApiKey = "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";
-    private const string OpenAiEndpoint = "https://api.openai.com/v1/chat/completions";
+    private const string GeminiApiKey = "AIzaSyBbEoTyKoWZSRQyogioyfCxIfGSNm-at-o";
+    private const string GeminiEndpoint = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 
     public GitHubWebhookController(HttpClient httpClient)
     {
@@ -96,11 +96,39 @@ public class GitHubWebhookController : ControllerBase
         }), Encoding.UTF8, "application/json");
 
         _httpClient.DefaultRequestHeaders.Clear();
-        _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {OpenAiApiKey}");
+        _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {GeminiApiKey}");
 
-        var response = await _httpClient.PostAsync(OpenAiEndpoint, requestBody);
-        var responseContent = await response.Content.ReadAsStringAsync();
-        return JsonSerializer.Deserialize<JsonElement>(responseContent).GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString();
+        var response = await _httpClient.PostAsync(GeminiEndpoint, requestBody);
+        // var responseContent = await response.Content.ReadAsStringAsync();
+        // return JsonSerializer.Deserialize<JsonElement>(responseContent).GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString();
+        using (var stream = await response.Content.ReadAsStreamAsync())
+        using (var reader = new System.IO.StreamReader(stream))
+        {
+            string fullResponse = "";
+            while (!reader.EndOfStream)
+            {
+                string line = await reader.ReadLineAsync();
+                if (line.StartsWith("data: "))
+                {
+                    string jsonString = line.Substring(6); // Remove "data: "
+
+                    if (jsonString == "[DONE]")
+                    {
+                        break;
+                    }
+
+                    JsonDocument jsonDocument = JsonDocument.Parse(jsonString);
+                    if (jsonDocument.RootElement.TryGetProperty("choices", out JsonElement choices) && choices.ValueKind == JsonValueKind.Array && choices.GetArrayLength() > 0)
+                    {
+                        if (choices[0].TryGetProperty("delta", out JsonElement delta) && delta.TryGetProperty("content", out JsonElement contentElement))
+                        {
+                            fullResponse += contentElement.GetString();
+                        }
+                    }
+                }
+            }
+            return fullResponse;
+        }
     }
 
     private async Task PostGitHubComment(string repoUrl, string prNumber, string filename, string reviewComment)
