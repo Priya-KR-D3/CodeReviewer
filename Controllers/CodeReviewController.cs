@@ -49,26 +49,6 @@ public class CodeReviewController : ControllerBase
         _httpClient.DefaultRequestHeaders.Clear();
         _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {GeminiApiKey}");
 
-        //  var response = await _httpClient.PostAsync(GeminiEndpoint, content);
-        //   var responseContent = await response.Content.ReadAsStringAsync();
-
-        //JsonDocument jsonDocument = JsonDocument.Parse(responseContent);
-
-        //if (!response.IsSuccessStatusCode)
-        //{
-        //    return BadRequest(new { error = $"Gemini API Error: {responseContent}" });
-        //}
-
-        //try
-        //{
-        //    var jsonResponse = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(responseContent);
-        //    return Ok(jsonResponse);
-        //}
-        //catch (Newtonsoft.Json.JsonException)
-        //{
-        //    return BadRequest(new { error = "Invalid JSON response from Gemini API." });
-        //}
-
 
         HttpResponseMessage response = await _httpClient.PostAsync(GeminiEndpoint, content); // important.
         response.EnsureSuccessStatusCode();
